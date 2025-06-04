@@ -1,12 +1,12 @@
 provider "aws" {
-    region = "us-east-2"
+    region = "eu-north-1"
 }
 
 
 # Amazon Machine Image(AMI) for the instance
 resource "aws_instance" "example" {
-    ami           = "ami-0fb653ca2d3203ac1"
-    instance_type = "t2.micro"
+    ami           = "ami-006b4a3ad5f56fbd6"
+    instance_type = "t3.micro"
 
     tags = {
         Name = "ExampleInstance"
