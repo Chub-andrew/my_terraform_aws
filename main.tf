@@ -10,33 +10,49 @@ provider "aws" {
   region = "us-east-2"
 }
 
-resource "aws_launch_configuration" "example" {
-image_id = "ami-0fb653ca2d3203ac1"
-instance_type = "t2.micro"
-security_groups = [aws_security_group.instance.id]
-user_data = <<-EOF
-#!/bin/bash
-echo "Hello, World" > index.html
-nohup busybox httpd -f -p ${var.server_port} &
-EOF
-  lifecycle {
-create_before_destroy = true
-}
+resource "aws_launch_template" "example" {
+  name_prefix   = "terraform-example-"
+  image_id      = "ami-0fb653ca2d3203ac1"
+  instance_type = "t2.micro"
+
+  vpc_security_group_ids = [aws_security_group.instance.id]
+
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    echo "Hello, World" > index.html
+    nohup busybox httpd -f -p ${var.server_port} &
+  EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = {
+      Name = "terraform-asg-example"
+    }
+  }
 }
 
 resource "aws_autoscaling_group" "example" {
-launch_configuration = aws_launch_configuration.example.name
-vpc_zone_identifier = data.aws_subnets.default.ids
-  target_group_arns = [aws_lb_target_group.asg.arn]
-health_check_type = "ELB"
-min_size = 2
-max_size = 10
-tag {
-key = "Name"
-value = "terraform-asg-example"
-propagate_at_launch = true
+  min_size             = 2
+  max_size             = 10
+  desired_capacity     = 2
+  vpc_zone_identifier  = data.aws_subnets.default.ids
+  target_group_arns    = [aws_lb_target_group.asg.arn]
+  health_check_type    = "ELB"
+
+  launch_template {
+    id      = aws_launch_template.example.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "terraform-asg-example"
+    propagate_at_launch = true
+  }
 }
-}
+
 
 #We can send any request to 8080 port
 resource "aws_security_group" "instance" {
